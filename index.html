@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buscador Excel Universal</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; background: rgba(255, 255, 255, 0.95); border-radius: 20px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1); backdrop-filter: blur(10px); overflow: hidden; }
+        .header { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); padding: 30px; text-align: center; color: white; }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3); }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        .content { padding: 40px; }
+        .setup-section, .search-section { margin-bottom: 40px; padding: 30px; background: rgba(255, 255, 255, 0.8); border-radius: 15px; border: 1px solid rgba(0, 0, 0, 0.1); }
+        .section-title { font-size: 1.5em; color: #333; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+        .section-title::before { content: ""; width: 4px; height: 25px; background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); border-radius: 2px; }
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; }
+        input[type="text"], input[type="url"], input[type="file"], select { width: 100%; padding: 12px 16px; border: 2px solid #e1e5e9; border-radius: 10px; font-size: 16px; transition: all 0.3s ease; background: white; }
+        input[type="text"]:focus, input[type="url"]:focus, input[type="file"]:focus, select:focus { outline: none; border-color: #4facfe; box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1); transform: translateY(-1px); }
+        .btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; border: none; padding: 12px 30px; border-radius: 10px; font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.3s ease; text-transform: uppercase; letter-spacing: 0.5px; }
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3); }
+        .btn:active { transform: translateY(0); }
+        .btn:disabled { background: #ccc; cursor: not-allowed; transform: none; box-shadow: none; }
+        .status { padding: 15px; border-radius: 10px; margin: 20px 0; font-weight: 500; text-align: center; }
+        .status.success { background: rgba(72, 187, 120, 0.1); color: #2f855a; border: 1px solid rgba(72, 187, 120, 0.3); }
+        .status.error { background: rgba(245, 101, 101, 0.1); color: #c53030; border: 1px solid rgba(245, 101, 101, 0.3); }
+        .status.info { background: rgba(66, 153, 225, 0.1); color: #2b6cb0; border: 1px solid rgba(66, 153, 225, 0.3); }
+        .search-controls { display: grid; grid-template-columns: 1fr auto auto; gap: 15px; align-items: end; }
+        .results-container { margin-top: 30px; }
+        .results-table { width: 100%; border-collapse: collapse; background: white; border-radius: 10px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); }
+        .results-table th { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px; text-align: left; font-weight: 600; }
+        .results-table td { padding: 12px 15px; border-bottom: 1px solid #e2e8f0; }
+        .results-table tr:hover { background: rgba(79, 172, 254, 0.05); transform: scale(1.01); transition: all 0.2s ease; }
+        .no-results { text-align: center; padding: 40px; color: #666; font-style: italic; }
+        .hidden { display: none; }
+        .instructions { background: rgba(255, 193, 7, 0.1); border: 1px solid rgba(255, 193, 7, 0.3); padding: 20px; border-radius: 10px; margin-bottom: 20px; }
+        .instructions h3 { color: #856404; margin-bottom: 10px; }
+        .instructions ol, .instructions p { color: #856404; }
+        .instructions ol { padding-left: 20px; }
+        .instructions li { margin-bottom: 5px; }
+        .share-info { background: rgba(76, 175, 80, 0.1); padding: 20px; border-radius: 10px; margin: 20px 0; border-left: 4px solid #4caf50; }
+        .privacy-warning { background: rgba(255, 152, 0, 0.1); padding: 15px; border-radius: 8px; border-left: 4px solid #ff9800; margin: 15px 0; }
+        @media (max-width: 768px) { .search-controls { grid-template-columns: 1fr; } .header h1 { font-size: 2em; } .content { padding: 20px; } .setup-section, .search-section { padding: 20px; } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Buscador Excel Universal</h1>
+            <p>Funciona en cualquier navegador, sin instalación ni permisos especiales</p>
+        </div>
+
+        <div class="content">
+            <div class="share-info">
+                <h3>📤 Cómo compartir esta aplicación:</h3>
+                <p><strong>1.</strong> Guarda esta página como archivo HTML (Ctrl+S o Cmd+S)</p>
+                <p><strong>2.</strong> Comparte el archivo HTML con otros usuarios</p>
+                <p><strong>3.</strong> Cualquiera puede abrirlo en su navegador, ¡sin instalación!</p>
+            </div>
+
+            <div class="setup-section">
+                <h2 class="section-title">⚙️ Configuración de Datos</h2>
+                
+                <div class="instructions">
+                    <h3>📁 Opción 1 - Cargar archivo local:</h3>
+                    <p>Para uso personal inmediato</p>
+                </div>
+
+                <div class="form-group">
+                    <label for="fileInput">Seleccionar archivo Excel:</label>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls" style="padding: 10px; border: 2px dashed #4facfe; border-radius: 10px; background: rgba(79, 172, 254, 0.05);">
+                </div>
+
+                <button class="btn" onclick="loadLocalFile()">Cargar Archivo Local</button>
+                
+                <div style="margin: 30px 0; text-align: center; color: #666;">
+                    <strong>--- O ---</strong>
+                </div>
+
+                <div class="instructions">
+                    <h3>🌐 Opción 2 - URL de Google Sheets:</h3>
+                    <div style="background: rgba(255, 193, 7, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0; border-left: 4px solid #ff9800;">
+                        <strong>⚠️ PASO OBLIGATORIO - PUBLICAR EL ARCHIVO:</strong><br>
+                        <strong>Tu archivo NO funcionará hasta que hagas esto:</strong>
+                        <ol style="margin-top: 10px;">
+                            <li>Abre tu Google Sheets</li>
+                            <li>Ve a <strong>Archivo → Compartir → Publicar en la web</strong></li>
+                            <li>En "Formato" selecciona: <strong>"Valores separados por comas (.csv)"</strong></li>
+                            <li>Marca: <strong>"Republicar automáticamente cuando se realicen cambios"</strong></li>
+                            <li>Haz clic en <strong>"Publicar"</strong></li>
+                            <li>Confirma haciendo clic en <strong>"Publicar"</strong> de nuevo</li>
+                        </ol>
+                        <div style="background: rgba(244, 67, 54, 0.1); padding: 10px; border-radius: 5px; margin-top: 10px; border-left: 3px solid #f44336;">
+                            <strong>💡 IMPORTANTE:</strong> Sin publicar, obtendrás el error "failed to fetch". La publicación es OBLIGATORIA.
+                        </div>
+                    </div>
+                    <div style="background: rgba(33, 150, 243, 0.1); padding: 15px; border-radius: 8px; margin: 10px 0;">
+                        <strong>🔗 Tu URL actual funcionará después de publicar:</strong>
+                        <p style="word-break: break-all; background: rgba(255,255,255,0.7); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.9em;">
+                            https://docs.google.com/spreadsheets/d/1I4LkPziBF-X5WpgqAzIn-al0ALSoRcbf/edit?gid=1410411148#gid=1410411148
+                        </p>
+                        <p><strong>Se convertirá automáticamente a:</strong></p>
+                        <p style="word-break: break-all; background: rgba(76, 175, 80, 0.1); padding: 8px; border-radius: 4px; font-family: monospace; font-size: 0.85em;">
+                            https://docs.google.com/spreadsheets/d/1I4LkPziBF-X5WpgqAzIn-al0ALSoRcbf/export?format=csv&gid=1410411148
+                        </p>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="sheetsUrl">URL de Google Sheets:</label>
+                    <input type="url" id="sheetsUrl" placeholder="https://docs.google.com/spreadsheets/d/1I4LkPziBF-X5WpgqAzIn-al0ALSoRcbf/edit?gid=1410411148#gid=1410411148">
+                    <small style="color: #666; font-size: 0.9em; margin-top: 5px; display: block;">
+                        Pega aquí la URL de tu Google Sheets (cualquier formato). <strong>Recuerda que debe estar publicado en la web.</strong>
+                    </small>
+                </div>
+
+                <button class="btn" onclick="loadSheetsFile()">Cargar desde Google Sheets</button>
+                
+                <div id="loadStatus"></div>
+            </div>
+
+            <div id="searchSection" class="search-section hidden">
+                <h2 class="section-title">🔍 Buscar en los Datos</h2>
+                
+                <div class="search-controls">
+                    <div class="form-group">
+                        <label for="searchTerm">Término de búsqueda:</label>
+                        <input type="text" id="searchTerm" placeholder="Escribe lo que quieres buscar..." onkeydown="handleEnterKey(event)">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="searchColumn">Buscar en:</label>
+                        <select id="searchColumn">
+                            <option value="all">🔍 Todas las columnas</option>
+                        </select>
+                    </div>
+                    
+                    <button class="btn" onclick="searchData()">Buscar</button>
+                </div>
+
+                <div class="results-container">
+                    <div id="searchResults"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let excelData = [];
+        let headers = [];
+
+        function showStatus(message, type) {
+            const statusDiv = document.getElementById('loadStatus');
+            statusDiv.innerHTML = `<div class="status ${type}">${message}</div>`;
+        }
+
+        async function loadLocalFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showStatus('Por favor, selecciona un archivo.', 'error');
+                return;
+            }
+
+            showStatus('⏳ Procesando archivo...', 'info');
+            
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                await processExcelData(arrayBuffer);
+            } catch (error) {
+                console.error('Error:', error);
+                showStatus(`❌ Error: ${error.message}`, 'error');
+            }
+        }
+
+        function convertToCSVUrl(url) {
+            // Si ya es una URL CSV, devolverla tal como está
+            if (url.includes('export?format=csv')) {
+                return url;
+            }
+            
+            // Si es una URL de edición, convertirla a CSV
+            if (url.includes('/edit') || url.includes('/spreadsheets/d/')) {
+                // Extraer el ID del documento - patrón mejorado para diferentes formatos
+                const match = url.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+                if (!match) {
+                    throw new Error('No se pudo extraer el ID del documento de la URL');
+                }
+                
+                const docId = match[1];
+                
+                // Extraer el GID si existe - buscar en diferentes posiciones
+                let gid = '0';
+                const gidMatch = url.match(/[#&?]gid=([0-9]+)/);
+                if (gidMatch) {
+                    gid = gidMatch[1];
+                }
+                
+                // Construir la URL CSV
+                return `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv&gid=${gid}`;
+            }
+            
+            throw new Error('URL no reconocida. Debe ser una URL de Google Sheets válida.');
+        }
+
+        async function loadSheetsFile() {
+            const sheetsUrl = document.getElementById('sheetsUrl').value.trim();
+            
+            if (!sheetsUrl) {
+                showStatus('Por favor, ingresa la URL de Google Sheets.', 'error');
+                return;
+            }
+
+            showStatus('⏳ Procesando URL y descargando datos...', 'info');
+            
+            try {
+                // Convertir la URL a formato CSV
+                const csvUrl = convertToCSVUrl(sheetsUrl);
+                console.log('URL CSV generada:', csvUrl);
+                
+                // Mostrar la URL generada para debugging
+                showStatus(`⏳ Intentando acceder a: ${csvUrl}`, 'info');
+                
+                const response = await fetch(csvUrl, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'text/csv,text/plain,*/*'
+                    }
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        throw new Error('📄 Documento no encontrado (Error 404).<br><br><strong>Soluciones:</strong><br>1. Verifica que la URL sea correcta<br>2. Asegúrate de que el documento esté publicado: <br>&nbsp;&nbsp;&nbsp;<strong>Archivo → Compartir → Publicar en la web</strong><br>3. Selecciona formato CSV y marca "Republicar automáticamente"');
+                    } else if (response.status === 403) {
+                        throw new Error('🚫 Acceso denegado (Error 403).<br><br><strong>El archivo NO está publicado públicamente.</strong><br><br><strong>SOLUCIÓN OBLIGATORIA:</strong><br>1. Abre tu Google Sheets<br>2. Ve a <strong>Archivo → Compartir → Publicar en la web</strong><br>3. Selecciona <strong>"Valores separados por comas (.csv)"</strong><br>4. Marca <strong>"Republicar automáticamente"</strong><br>5. Haz clic en <strong>"Publicar"</strong>');
+                    } else {
+                        throw new Error(`❌ Error HTTP ${response.status}.<br><br>Verifica que:<br>1. La URL sea correcta<br>2. El archivo esté publicado públicamente<br>3. Tu conexión a internet funcione correctamente`);
+                    }
+                }
+
+                const csvText = await response.text();
+                
+                // Verificar que realmente sea contenido CSV
+                if (!csvText || csvText.trim().length === 0) {
+                    throw new Error('📄 El archivo está vacío o no contiene datos válidos.<br><br>Verifica que tu Google Sheets tenga datos y esté publicado correctamente.');
+                }
+                
+                if (csvText.includes('<!DOCTYPE html>') || csvText.includes('<html>')) {
+                    throw new Error('🌐 Se recibió HTML en lugar de CSV.<br><br><strong>Esto significa que el archivo NO está publicado públicamente.</strong><br><br>Debes publicarlo en: <strong>Archivo → Compartir → Publicar en la web</strong>');
+                }
+                
+                await processCSVData(csvText);
+            } catch (error) {
+                console.error('Error completo:', error);
+                
+                // Si es un error de red (failed to fetch)
+                if (error.name === 'TypeError' && error.message.includes('fetch')) {
+                    showStatus(`
+                        <div style="text-align: left;">
+                            <strong>🚫 ERROR DE CONEXIÓN (Failed to fetch)</strong><br><br>
+                            <strong>Causa principal:</strong> El archivo NO está publicado públicamente.<br><br>
+                            <strong>SOLUCIÓN PASO A PASO:</strong><br>
+                            1. Abre tu Google Sheets: <br>
+                            &nbsp;&nbsp;&nbsp;<code>${sheetsUrl}</code><br>
+                            2. Ve a <strong>Archivo → Compartir → Publicar en la web</strong><br>
+                            3. En "Formato" selecciona: <strong>"Valores separados por comas (.csv)"</strong><br>
+                            4. Marca la casilla: <strong>"Republicar automáticamente cuando se realicen cambios"</strong><br>
+                            5. Haz clic en <strong>"Publicar"</strong><br>
+                            6. Confirma la publicación<br><br>
+                            <strong>Sin este paso, la aplicación NO puede acceder a tus datos.</strong>
+                        </div>
+                    `, 'error');
+                } else {
+                    showStatus(`<div style="text-align: left;">${error.message}</div>`, 'error');
+                }
+            }
+        }
+
+        async function processExcelData(arrayBuffer) {
+            const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+            const firstSheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[firstSheetName];
+            const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+            
+            if (jsonData.length === 0) {
+                throw new Error('El archivo está vacío');
+            }
+
+            headers = jsonData[0] || [];
+            excelData = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+
+            showStatus(`✅ Archivo cargado: ${excelData.length} filas disponibles`, 'success');
+            document.getElementById('searchSection').classList.remove('hidden');
+            populateColumnSelector();
+        }
+
+        async function processCSVData(csvText) {
+            const lines = csvText.trim().split('\n');
+            const jsonData = lines.map(line => {
+                const result = [];
+                let current = '';
+                let inQuotes = false;
+                
+                for (let i = 0; i < line.length; i++) {
+                    const char = line[i];
+                    if (char === '"') {
+                        inQuotes = !inQuotes;
+                    } else if (char === ',' && !inQuotes) {
+                        result.push(current.trim());
+                        current = '';
+                    } else {
+                        current += char;
+                    }
+                }
+                result.push(current.trim());
+                return result.map(cell => cell.replace(/^"|"$/g, ''));
+            });
+            
+            if (jsonData.length === 0) {
+                throw new Error('No se encontraron datos');
+            }
+
+            headers = jsonData[0] || [];
+            excelData = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+
+            showStatus(`✅ Datos cargados: ${excelData.length} filas disponibles`, 'success');
+            document.getElementById('searchSection').classList.remove('hidden');
+            populateColumnSelector();
+        }
+
+        function populateColumnSelector() {
+            const select = document.getElementById('searchColumn');
+            select.innerHTML = '<option value="all">🔍 Todas las columnas</option>';
+            
+            headers.forEach((header, index) => {
+                if (header) {
+                    const option = document.createElement('option');
+                    option.value = index;
+                    option.textContent = `📋 ${header}`;
+                    select.appendChild(option);
+                }
+            });
+        }
+
+        function handleEnterKey(event) {
+            if (event.key === 'Enter') {
+                searchData();
+            }
+        }
+
+        function searchData() {
+            const searchTerm = document.getElementById('searchTerm').value.trim().toLowerCase();
+            const searchColumn = document.getElementById('searchColumn').value;
+            
+            if (!searchTerm) {
+                displayResults(excelData.slice(0, 50)); // Mostrar primeras 50 filas si no hay búsqueda
+                return;
+            }
+
+            let filteredData = [];
+
+            if (searchColumn === 'all') {
+                filteredData = excelData.filter(row => {
+                    return row.some(cell => {
+                        if (cell === undefined || cell === null) return false;
+                        return cell.toString().toLowerCase().includes(searchTerm);
+                    });
+                });
+            } else {
+                const columnIndex = parseInt(searchColumn);
+                filteredData = excelData.filter(row => {
+                    const cell = row[columnIndex];
+                    if (cell === undefined || cell === null) return false;
+                    return cell.toString().toLowerCase().includes(searchTerm);
+                });
+            }
+
+            displayResults(filteredData);
+        }
+
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('searchResults');
+            
+            if (results.length === 0) {
+                resultsDiv.innerHTML = '<div class="no-results">🔍 No se encontraron resultados</div>';
+                return;
+            }
+
+            let tableHTML = '<table class="results-table"><thead><tr>';
+            
+            headers.forEach(header => {
+                tableHTML += `<th>${header || 'Sin nombre'}</th>`;
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            results.slice(0, 100).forEach(row => { // Limitar a 100 resultados para performance
+                tableHTML += '<tr>';
+                headers.forEach((header, index) => {
+                    const cellValue = row[index] || '';
+                    tableHTML += `<td>${cellValue}</td>`;
+                });
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            
+            const moreResults = results.length > 100 ? ` (mostrando primeros 100 de ${results.length})` : '';
+            tableHTML += `<div class="status success">✅ ${results.length} resultado(s) encontrado(s)${moreResults}</div>`;
+            
+            resultsDiv.innerHTML = tableHTML;
+        }
+
+        // Mostrar datos iniciales cuando se cargan
+        window.addEventListener('load', () => {
+            console.log('📊 Buscador Excel Universal cargado correctamente');
+        });
+    </script>
+</body>
+</html>
